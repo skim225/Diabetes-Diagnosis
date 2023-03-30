@@ -1,0 +1,116 @@
+---
+title: "Logistic Regression - Predicting Diabetes Diagnosis"
+author: "Sean Kim"
+subtitle: "Date: "
+output: html_document
+---
+## Data Cleaning/Preparation
+To create the height.si column, height was multiplied by 0.0254. To create the weight.si column, weight was multiplied by 0.453592. To calculate the BMI we needed to multiply the weight.si and height.si^2. Then I categorized the BMI into four categories underweight, normal, overweight, and obese using ifelse function to create the bmi_categorized variable. Ifelse was also used to update the insurance variable to switch 0, 1, and 2 to none, government, and private respectively. I also used ifelse to categorize the smoking variable. The changes made were 1 to current, 2 to never, and 3 to ex-smoker. To check my work I used summary for continuous variables and table for categorical variables.
+
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert import & data cleaning code here
+library(Hmisc)
+library(dplyr)
+diabetes <- read.csv('diabetes.csv')
+
+# height.si variable creation
+diabetes <- mutate(diabetes, height.si = height*0.0254)
+summary(diabetes$height.si)
+
+# weight.si variable creation
+diabetes <- mutate(diabetes, weight.si = weight*0.453592)
+summary(diabetes$weight.si)
+
+# bmi variable creation
+diabetes <- mutate(diabetes, BMI = (weight.si)/(height.si^2))
+summary(diabetes$BMI)
+
+# bmi_categorized variable creation
+diabetes <- mutate(diabetes, bmi_categorized = ifelse((BMI > 0) & (BMI < 18.5), "underweight",
+                                               ifelse((BMI >= 18.5) & (BMI <= 25), "normal",
+                                               ifelse((BMI > 25) & (BMI <= 30), "overweight",
+                                               ifelse(BMI > 30, "obese", 
+                                                      NA)))))
+table(diabetes$bmi_categorized)
+
+# Insurance mutation
+diabetes <- mutate(diabetes, insurance = ifelse(insurance == 0, "none",
+                                         ifelse(insurance == 1, "government",
+                                         ifelse(insurance == 2, "private",
+                                                NA))))
+table(diabetes$insurance)
+
+# Smoking recode
+diabetes <- mutate(diabetes, smoking = ifelse(smoking == 1, "current",
+                                       ifelse(smoking == 2, "never",
+                                       ifelse(smoking == 3, "ex-smoker", 
+                                              NA))))
+table(diabetes$smoking)
+
+
+```
+
+
+## Exploratory Data Analysis
+There are 403 observations in this dataset. The percentage of obese people in the data is 38.3%. There are 58.1% females in this dataset. 15.4% of people have diabetes. The average age in this dataset is 46.85112 years old while the average BMI for individuals in this dataset is 28.7874.
+
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert exploratory data analysis code here
+# Number of observations
+dim(diabetes)[1]
+
+# Percentage of Observations in bmi_categorized category
+round(prop.table(table(diabetes$bmi_categorized)),3)*100
+
+# Percentage of observations in gender category
+round(prop.table(table(diabetes$gender)),3)*100
+
+# Percentage of observations in diabetes category
+round(prop.table(table(diabetes$dm)),3)*100
+
+# Average age of individuals
+mean(diabetes$age, na.rm = T)
+
+# Average BMI of individuals
+mean(diabetes$BMI, na.rm = T)
+
+```
+
+## Data Visualization
+Figure 1 shows the the frequency on which type of insurance people have. Most people have government provided insurance while the second most is private insurance. Then the least is people who have no insurance. Figure 2 shows the frequency of people who a person's smoking status. The table shows how most people have never smoked before and the second most is people who are currently smokers and the least frequent from the dataset were people who are ex-smokers. Figure 3 is a scatterplot showing the relationship between cholesterol and BMI. There seems to be a small positive correlation between BMI and cholesterol levels. So, if BMI goes up cholesterol also goes up however slightly. Figure 4 is a histogram depicting the spread of ages in the dataset. There seems to be more middle-age and elderly people in this dataset rather than younger people. 
+
+```{r warning=FALSE, message=FALSE}
+# insert data visualization code here
+
+# Figure 1: Frequency table of insurance variable
+ggplot(data = diabetes) + aes(x=insurance, fill=insurance) + geom_bar() + labs(title="Figure 1: Frequency Table of Insurance", x="Insurance", y="Count", fill = "Insurance") + theme(plot.title = element_text(hjust = 0.5))
+
+# Figure 2: Frequency table of smoking variable
+ggplot(data = diabetes) + aes(x=smoking, fill=smoking) + geom_bar() + labs(title="Figure 2: Frequency Table of Smoking Status", x="Smoking Status", y="Count", fill = "Smoking Status") + theme(plot.title = element_text(hjust = 0.5))
+
+# Figure 3: Scatter plot between BMI and Cholesterol
+ggplot(data = diabetes) + aes(x=BMI, y=chol) +geom_point() + geom_smooth(method=lm) + labs(title="Figure 3: Relationship between BMI and Cholesterol", x="BMI", y="Cholesterol Level") + theme(plot.title = element_text(hjust = 0.5))
+
+# Correlation Coefficient
+cor.test(diabetes$BMI, diabetes$chol, method="pearson", conf.level=0.95)
+
+# Figure 4: Histogram of Age
+ggplot(data = diabetes) + aes(age) + geom_histogram(color="white", binwidth = 5) + labs(title="Figure 4: Distribution of Age", x="Age (years)") + theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+## Logistic Regression Results
+A 1 year increase in age causes the log odds of having diabetes to increase by 0.055454, holding the other independent variables constant. 
+A 1 unit increase in BMI causes the log odds of having diabetes to increase by 0.073879, holding the other independent variables constant.
+A change in gender from someone who is female to male increases the natural log of the odds of having diabetes by 0.244852, holding the other independent variables constant. 
+
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert logistic regression code
+fit <- glm(dm ~ age + factor(gender) + BMI, data = diabetes, family = "binomial")
+
+summary(fit)
+
+```
+
